@@ -1,0 +1,9 @@
+{
+    "AUTHOR" : "Douile",
+    "INSTALL_MSG" : "Installed",
+    "NAME" : "BanEventSync",
+    "SHORT" : "Sync all bans and unbans between synced guilds",
+    "DESCRIPTION" : "Sync all bans and unbans between synced guilds",
+    "TAGS" : [],
+    "REQUIREMENTS" : []
+}
