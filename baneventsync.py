@@ -8,7 +8,7 @@ if listener is None:  # thanks Sinbad
     def listener(name=None):
         return lambda x: x
 
-class BanSync(commands.Cog):
+class BanEventSync(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
     self.config = Config.get_conf(self, 2348123)
@@ -187,4 +187,4 @@ class BanSync(commands.Cog):
   #   # store id in database using user.id
 
 def setup(bot):
-    bot.add_cog(BanSync(bot))
+    bot.add_cog(BanEventSync(bot))
