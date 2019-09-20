@@ -185,6 +185,3 @@ class BanEventSync(commands.Cog):
   #     except Exception as e:
   #         continue
   #   # store id in database using user.id
-
-def setup(bot):
-    bot.add_cog(BanEventSync(bot))
