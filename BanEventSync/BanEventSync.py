@@ -1,5 +1,5 @@
 import discord
-
+import asyncio
 from redbot.core import commands, checks, Config, utils
 
 listener = getattr(commands.Cog, "listener", None)  # red 3.0 backwards compatibility support
@@ -11,8 +11,11 @@ if listener is None:  # thanks Sinbad
 class BanEventSync(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
+    self._is_consuming = False
     self.config = Config.get_conf(self, 2348123)
-    self.config.register_global(sync_list=[],ban_list=[])
+    self.config.register_global(sync_list=[],ban_list=[],ban_queue=[])
+    self.ban_queue = ConfigLock(self.config.ban_queue)
+    print('Loaded BanEventSync...')
 
   async def in_sync_list(self, guild):
       sync_list = await self.config.sync_list()
@@ -42,15 +45,7 @@ class BanEventSync(commands.Cog):
       async for g in self.synced_guilds():
         if g == guild:
           continue
-        try:
-          t_ban = await g.fetch_ban(ban.user)
-          continue
-        except discord.errors.NotFound: # User is not banned on server g
-          pass
-        except Exception as e:
-          print(e)
-          continue # Add proper error handling
-        await g.ban(ban.user, reason=ban.reason)
+        await self.queue_action(is_ban=True, guild=g, ban=ban)
 
   async def collect_guild_bans(self, guild):
       if guild is None:
@@ -62,7 +57,7 @@ class BanEventSync(commands.Cog):
   async def enact_bans(self, guild):
       ban_list = await self.config.ban_list()
       for ban in ban_list:
-          await guild.ban(discord.Object(ban['user']),reason=ban['reason'])
+          await self.queue_action(is_ban=True, guild=guild, user=ban['user'], reason=ban['reason'])
 
   @listener()
   async def on_member_ban(self, guild, user):
@@ -99,7 +94,7 @@ class BanEventSync(commands.Cog):
         continue # Add proper error handling
 
       try:
-        await g.unban(user)
+        await self.queue_action(is_ban=False, user=user, guild=g)
       except Exception as e:
         print(e)
         pass
@@ -163,25 +158,84 @@ class BanEventSync(commands.Cog):
               ban_list.remove(ban)
       await self.config.ban_list.set(ban_list)
 
-  # @commands.command()
-  # @checks.admin()
-  # async def testban(self, ctx, id: int = None, reason: str = None):
-  #     await ctx.guild.ban(discord.Object(id),reason=reason)
+  async def queue_action(self, *, is_ban=False, user=None, reason=None, guild=None, ban=None):
+      user_id = None
+      guild_id = None
 
-  # @commands.Command()
-  # async def globalban(self, ctx, *, member: discord.Member = None, id: str = None, reason: str = None, delete_days: int = 1):
-  #   if member is not None:
-  #     user = member
-  #   elif id is not None:
-  #     user = discord.Object(id)
-  #   else:
-  #     return Error("You must mention a member or provide a snowflake")
-  #
-  #   for guild in self.synced_guilds():
-  #     if guild == ctx.guild:
-  #         continue
-  #     try:
-  #         await guild.ban(user, reason=reason, delete_message_days=delete_days)
-  #     except Exception as e:
-  #         continue
-  #   # store id in database using user.id
+      if isinstance(user, discord.Object):
+          user_id = user.id
+      elif user is None and ban is not None:
+          user_id = ban.user.id
+          reason = ban.reason
+      else:
+          user_id = user
+
+      if isinstance(guild, discord.Guild) or isinstance(guild, discord.Object):
+          guild_id = guild.id
+      else:
+          guild_id = guild
+
+      if user_id is None or guild_id is None:
+          raise Exception('User or guild id not provided to ban action')
+
+      i, ban_queue = await self.ban_queue.lock()
+      ban_queue.append({'guild': guild_id, 'user': user_id, 'reason': reason, 'ban': is_ban})
+      await self.ban_queue.unlock(i, ban_queue)
+
+      if not self._is_consuming:
+          self.bot.loop.create_task(self.action_consumer())
+
+
+  async def action_consumer(self):
+      self._is_consuming = True
+      print('Consumer started')
+      while 1:
+          i, ban_queue = await self.ban_queue.lock()
+          if len(ban_queue) > 0:
+              ban = ban_queue.pop(0)
+              await self.ban_queue.unlock(i, ban_queue)
+              guild = self.bot.get_guild(ban['guild'])
+              if ban.get('ban', False):
+                  await guild.ban(discord.Object(ban['user']),reason=ban.get('reason',None))
+              else:
+                  await guild.unban(discord.Object(ban['user']))
+          else:
+              await self.ban_queue.unlock(i)
+              break
+          await asyncio.sleep(0.4)
+      self._is_consuming = False
+      print('Consumer stopped')
+
+
+
+  @commands.command()
+  @checks.is_owner()
+  async def testban(self, ctx, id: int = None, reason: str = None):
+      await ctx.guild.ban(discord.Object(id),reason=reason)
+
+class AsyncLock:
+    def __init__(self):
+        self.lock_i = 0
+        self.lock_active = None
+    async def lock(self):
+        i = self.lock_i + 1
+        self.lock_i = i
+        while self.lock_active is not None:
+            await asyncio.sleep(0.2)
+        self.lock_active = i
+        value = await self._get()
+        return (i, value)
+    async def unlock(self, key, value=None):
+        if key == self.lock_active:
+            if value is not None:
+                await self._set(value)
+            self.lock_active = None
+
+class ConfigLock(AsyncLock):
+    def __init__(self, configItem):
+        super().__init__()
+        self._item = configItem
+    async def _get(self):
+        return await self._item()
+    async def _set(self,value):
+        return await self._item.set(value)
