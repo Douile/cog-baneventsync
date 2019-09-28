@@ -1,4 +1,5 @@
 import discord
+from discord.guild import BanEntry
 import asyncio
 from redbot.core import commands, checks, Config, utils
 
@@ -38,6 +39,12 @@ class BanEventSync(commands.Cog):
   async def sync_ban(self, guild, ban):
       if ban is None or guild is None or ban.user is None or await self.in_ban_list(ban.user):
           return
+
+      if ban.reason is None:
+          reason = '<{0}>'.format(guild.name)
+      else:
+          reason = '{0} <{1}>'.format(ban.reason, guild.name)
+      ban = BanEntry(user=ban.user, reason=reason)
 
       print("Syncing ban {0} - {1}".format(ban.user.name, ban.reason))
       await self.save_ban(ban)
