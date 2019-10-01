@@ -220,6 +220,12 @@ class BanEventSync(commands.Cog):
   async def testban(self, ctx, id: int = None, reason: str = None):
       await ctx.guild.ban(discord.Object(id),reason=reason)
 
+  @commands.command()
+  @checks.admin()
+  async def synctasks(self, ctx):
+      queue = await self.config.ban_queue._get()
+      await ctx.send('{0} tasks currently in queue'.format(len(queue)))
+
 class AsyncLock:
     def __init__(self):
         self.lock_i = 0
