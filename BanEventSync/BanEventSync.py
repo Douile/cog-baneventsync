@@ -169,7 +169,7 @@ class BanEventSync(commands.Cog):
       user_id = None
       guild_id = None
 
-      if isinstance(user, discord.Object):
+      if isinstance(user, discord.Object) or isinstance(user, discord.abc.User):
           user_id = user.id
       elif user is None and ban is not None:
           user_id = ban.user.id
@@ -177,7 +177,7 @@ class BanEventSync(commands.Cog):
       else:
           user_id = user
 
-      if isinstance(guild, discord.Guild) or isinstance(guild, discord.Object):
+      if isinstance(guild, discord.Object) or isinstance(guild, discord.Guild):
           guild_id = guild.id
       else:
           guild_id = guild
