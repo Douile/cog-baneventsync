@@ -133,6 +133,7 @@ class BanEventSync(commands.Cog):
 
     @commands.command(name="synctoggle", help="Toggle whether or not a server is synced given its ID")
     @checks.admin()
+    @checks.bot_in_a_guild()
     async def syncserver(self, ctx, guild_id: int = None, *, dont_collect: bool = False):
         if guild_id is not None:
             guild = self.bot.get_guild(guild_id)
@@ -186,6 +187,7 @@ class BanEventSync(commands.Cog):
 
     @commands.command(name="syncrecover", help="Check ban syncs on all servers")
     @checks.is_owner()
+    @checks.bot_in_a_guild()
     async def syncrecover(self, ctx):
         message = await ctx.send('Removing duplicate bans...')
         await self.remove_duplicates()
