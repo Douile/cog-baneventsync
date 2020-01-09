@@ -1,6 +1,6 @@
 {
     "author" : [ "Douile" ],
-    "bot_version": [ 1, 2, 0 ],
+    "bot_version": [ 1, 2, 1 ],
     "install_msg" : "Installed BanEventSync",
     "short" : "Sync bans between guilds",
     "description" : "Sync all bans and unbans between synced guilds",
