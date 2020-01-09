@@ -16,7 +16,7 @@ class BanEventSync(commands.Cog):
         self._is_consuming = False
         self.config = Config.get_conf(self, 2348123)
         self.config.register_global(sync_list=[], ban_list=[], ban_queue=[])
-        self.sync_list = ConfigLock(self.config.ban_queue)
+        self.sync_list = ConfigLock(self.config.sync_list)
         self.ban_list = ConfigLock(self.config.ban_list)
         self.ban_queue = ConfigLock(self.config.ban_queue)
         print('Loaded BanEventSync...')
